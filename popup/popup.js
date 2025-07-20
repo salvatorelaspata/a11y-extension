@@ -4,61 +4,50 @@ document.getElementById('elaborate').addEventListener('click', async () => {
   btn.textContent = 'Elaborando...';
   const status = document.getElementById('status');
   status.textContent = 'Elaborazione in corso...';
-  status.style.color = ''; // Reset color
 
   try {
-    // Prima ottieni l'HTML della pagina attiva
-    const pageHTML = await _getPageHTML();
-    console.log('HTML ottenuto, lunghezza:', pageHTML.length);
-
-    const [responseScreenshot, pageContent] = await Promise.all([
+    const html = await _getPageHTML();
+    console.log(html)
+    const [responseScreenshot, pageContentMDServiceWorker, pageContentMDClient] = await Promise.all([
       _promifySendMessage("screenshot"),
-      _promifySendMessage("convertInContentScript") // Usa il nuovo metodo
+      _promifySendMessage("convertToMarkdownSW", html),
+      _promifySendMessage("convertToMarkdownInContentScript")
     ]);
 
-    console.log("Risposta conversione:", pageContent);
+    console.log("Risposta screenshot:", responseScreenshot);
+    console.log("Risposta Markdown Service Worker:", pageContentMDServiceWorker);
+    console.log("Risposta Markdown Content Script:", pageContentMDClient);
 
-    // Gestisci lo screenshot
     if (responseScreenshot && responseScreenshot.success) {
       status.appendChild(_createP('Screenshot: ok ✅'));
-      // Opzionale: scarica automaticamente lo screenshot
-      // _downloadScreenshotAutomatically(responseScreenshot.screenshotUrl);
     } else {
-      console.error("Errore durante lo screenshot:", responseScreenshot?.error);
       status.appendChild(_createP('Errore screenshot: ' + (responseScreenshot?.error + " ❌" || "Errore sconosciuto ❌")));
     }
 
-    // Gestisci la conversione Markdown
-    if (pageContent && pageContent.success) {
-      status.appendChild(_createP('Markdown convertito con successo ✅'));
-
-      // Usa il markdown convertito
-      const markdownToUse = pageContent.markdown;
+    if (pageContentMDServiceWorker && pageContentMDServiceWorker.success) {
+      status.appendChild(_createP('Markdown convertito con successo (Service Worker) ✅'));
+      const markdownToUse = pageContentMDServiceWorker.markdown;
 
       if (markdownToUse) {
-        // Copia negli appunti
-        try {
-          await navigator.clipboard.writeText(markdownToUse);
-          status.appendChild(_createP('Markdown copiato negli appunti ✅'));
-        } catch (clipboardError) {
-          console.warn('Errore copia clipboard:', clipboardError);
-          status.appendChild(_createP('Conversione ok, ma errore copia clipboard ⚠️'));
-        }
-
-        // Opzionale: scarica automaticamente il file
-        // _downloadMarkdownAutomatically(markdownToUse);
-
-        // Mostra info sulla conversione
-        if (pageContent.method === 'contentScript') {
-          status.appendChild(_createP('Conversione fatta nel content script'));
-        } else if (pageContent.method === 'regex') {
-          status.appendChild(_createP('Conversione fatta con regex (limitata)'));
-        }
+        // try { await navigator.clipboard.writeText(markdownToUse) }
+        // catch (clipboardError) { status.appendChild(_createP('Conversione ok, ma errore copia clipboard ⚠️')) }
+        _downloadMarkdownAutomatically(markdownToUse);
       }
     } else {
-      console.error("Errore durante la conversione:", pageContent?.error);
-      status.appendChild(_createP('Errore conversione Markdown: ' + (pageContent?.error + " ❌" || "Errore sconosciuto ❌")));
-      status.style.color = '#f44336';
+      status.appendChild(_createP('Errore conversione Markdown: ' + (pageContentMDServiceWorker?.error + " ❌" || "Errore sconosciuto ❌")));
+    }
+
+    if (pageContentMDClient && pageContentMDClient.success) {
+      status.appendChild(_createP('Markdown convertito con successo (Content Script) ✅'));
+      const markdownToUseClient = pageContentMDClient.markdown;
+
+      if (markdownToUseClient) {
+        // try { await navigator.clipboard.writeText(markdownToUseClient) }
+        // catch (clipboardError) { status.appendChild(_createP('Conversione ok, ma errore copia clipboard (Content Script) ⚠️')); }
+        _downloadMarkdownAutomatically(markdownToUseClient);
+      }
+    } else {
+      status.appendChild(_createP('Errore conversione Markdown (Content Script): ' + (pageContentMDClient?.error + " ❌" || "Errore sconosciuto ❌")));
     }
 
   } catch (error) {

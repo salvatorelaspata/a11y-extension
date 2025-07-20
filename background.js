@@ -1,5 +1,10 @@
-// Service Worker per Chrome Extension - Manifest V3
-// NOTA: DOMParser e document NON sono disponibili nei service workers!
+// chrome.runtime.onInstalled.addListener(({ reason }) => {
+//   if (reason === 'install') {
+//     chrome.sidePanel
+//       .setPanelBehavior({ openPanelOnActionClick: true })
+//       .catch((error) => console.error(error));
+//   }
+// });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "screenshot") {
@@ -15,7 +20,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
 
-  } else if (request.action === 'convertToMarkdown') {
+  } else if (request.action === 'convertToMarkdownSW') {
     try {
       // Nel service worker non possiamo usare DOMParser
       // Dobbiamo fare la conversione nel content script o popup
@@ -34,7 +39,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: false, error: error.message });
     }
     return true;
-  } else if (request.action === 'convertInContentScript') {
+  } else if (request.action === 'convertToMarkdownInContentScript') {
     // Inietta uno script nel tab attivo per fare la conversione là
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (chrome.runtime.lastError || !tabs[0]) {
@@ -145,6 +150,8 @@ function convertHtmlToMarkdownInPage() {
 
 // Funzione di fallback usando regex (limitata ma funzionante nei service workers)
 function _htmlToMarkdownRegex(html) {
+  console.log('Conversione HTML->Markdown con regex');
+  console.log('HTML da convertire:', html);
   if (!html) return '';
 
   try {
