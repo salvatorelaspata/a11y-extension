@@ -1,79 +1,215 @@
-// background.js
+// Service Worker per Chrome Extension - Manifest V3
+// NOTA: DOMParser e document NON sono disponibili nei service workers!
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "screenshot") {
     // Esegui la cattura dello screenshot
     chrome.tabs.captureVisibleTab(null, { format: "png" }, (screenshotUrl) => {
-      // Controlla se si è verificato un errore durante la cattura (molto importante!)
       if (chrome.runtime.lastError) {
         console.error("Errore durante la cattura dello screenshot:", chrome.runtime.lastError.message);
         sendResponse({ success: false, error: chrome.runtime.lastError.message });
         return;
       }
-
-      // Se tutto è andato bene, invia l'URL dello screenshot
       console.log("Screenshot catturato, invio la risposta...");
       sendResponse({ success: true, screenshotUrl: screenshotUrl });
     });
+    return true;
 
-    // Importante: restituisce true per indicare che la risposta sarà asincrona
+  } else if (request.action === 'convertToMarkdown') {
+    try {
+      // Nel service worker non possiamo usare DOMParser
+      // Dobbiamo fare la conversione nel content script o popup
+      console.log('Conversione HTML->Markdown richiesta nel service worker');
+
+      // Converti usando regex (metodo più limitato ma funzionante)
+      const regexMarkdown = _htmlToMarkdownRegex(request.html);
+
+      sendResponse({
+        success: true,
+        markdown: regexMarkdown,
+        method: 'regex'
+      });
+    } catch (error) {
+      console.error('Errore nella conversione:', error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  } else if (request.action === 'convertInContentScript') {
+    // Inietta uno script nel tab attivo per fare la conversione là
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (chrome.runtime.lastError || !tabs[0]) {
+        sendResponse({ success: false, error: 'Nessun tab attivo' });
+        return;
+      }
+
+      chrome.scripting.executeScript({
+        target: { tabId: tabs[0].id },
+        func: convertHtmlToMarkdownInPage
+      }, (results) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ success: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+
+        if (results && results[0] && results[0].result) {
+          sendResponse({
+            success: true,
+            markdown: results[0].result,
+            method: 'contentScript'
+          });
+        } else {
+          sendResponse({ success: false, error: 'Nessun risultato dalla conversione' });
+        }
+      });
+    });
     return true;
   }
 });
 
-// function getPageContent() {
-//   return document.documentElement.outerHTML;
-// }
+// Funzione che sarà iniettata nella pagina per la conversione
+function convertHtmlToMarkdownInPage() {
+  function htmlToMarkdown(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
 
-// async function sendToAI(html, screenshot) {
-//   const apiKey = 'LA_TUA_API_KEY_OPENAI';
-//   const endpoint = 'https://api.openai.com/v1/chat/completions';
+    function convertNode(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent.replace(/\s+/g, ' ').trim();
+      }
 
-//   const payload = {
-//     model: "gpt-4o",
-//     messages: [
-//       {
-//         role: "user",
-//         content: [
-//           {
-//             type: "text",
-//             text: `Analizza questa pagina web per l'accessibilità. Fornisci un riassunto del contenuto. Inoltre, identifica tutti gli elementi interattivi come form, input e pulsanti. Questo è l'HTML della pagina: ${html}`
-//           },
-//           {
-//             type: "image_url",
-//             image_url: {
-//               url: screenshot
-//             }
-//           }
-//         ]
-//       }
-//     ],
-//     max_tokens: 1000
-//   };
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return '';
+      }
 
-//   try {
-//     const response = await fetch(endpoint, {
-//       method: 'POST',
-//       headers: {
-//         'Content-Type': 'application/json',
-//         'Authorization': `Bearer ${apiKey}`
-//       },
-//       body: JSON.stringify(payload)
-//     });
+      const tag = node.tagName.toLowerCase();
+      const children = Array.from(node.childNodes)
+        .map(convertNode)
+        .join('')
+        .trim();
 
-//     if (!response.ok) {
-//       throw new Error(`Errore API: ${response.statusText}`);
-//     }
+      switch (tag) {
+        case 'h1': return children ? `# ${children}\n\n` : '';
+        case 'h2': return children ? `## ${children}\n\n` : '';
+        case 'h3': return children ? `### ${children}\n\n` : '';
+        case 'h4': return children ? `#### ${children}\n\n` : '';
+        case 'h5': return children ? `##### ${children}\n\n` : '';
+        case 'h6': return children ? `###### ${children}\n\n` : '';
+        case 'p': return children ? `${children}\n\n` : '';
+        case 'div': return children ? `${children}\n` : '';
+        case 'span': return children;
+        case 'strong':
+        case 'b': return children ? `**${children}**` : '';
+        case 'em':
+        case 'i': return children ? `*${children}*` : '';
+        case 'a': {
+          const href = node.getAttribute('href');
+          return children ? `[${children}](${href || '#'})` : '';
+        }
+        case 'img': {
+          const alt = node.getAttribute('alt') || '';
+          const src = node.getAttribute('src') || '';
+          return `![${alt}](${src})`;
+        }
+        case 'code': return children ? `\`${children}\`` : '';
+        case 'pre': return children ? `\`\`\`\n${children}\n\`\`\`\n\n` : '';
+        case 'ul': return children ? `${children}\n` : '';
+        case 'ol': return children ? `${children}\n` : '';
+        case 'li': return children ? `- ${children}\n` : '';
+        case 'br': return '\n';
+        case 'hr': return '---\n\n';
+        case 'blockquote': return children ? `> ${children}\n\n` : '';
+        case 'table': return children ? `${children}\n\n` : '';
+        case 'tr': return children ? `${children}\n` : '';
+        case 'td':
+        case 'th': return children ? `| ${children} ` : '| ';
+        case 'script':
+        case 'style':
+        case 'meta':
+        case 'link':
+        case 'head':
+        case 'noscript':
+          return '';
+        default: return children;
+      }
+    }
 
-//     const result = await response.json();
-//     const summary = result.choices[0].message.content;
+    const targetElement = doc.body || doc.documentElement;
+    const result = convertNode(targetElement).trim();
+    return result.replace(/\n{3,}/g, '\n\n');
+  }
 
-//     // Ora hai il riassunto e l'analisi. Passali al content script o al popup.
-//     console.log(summary);
+  // Ottieni l'HTML della pagina corrente e convertilo
+  const pageHtml = document.documentElement.outerHTML;
+  return htmlToMarkdown(pageHtml);
+}
 
-//   } catch (error) {
-//     console.error("Errore durante la chiamata all'API AI:", error);
-//   }
-// }
+// Funzione di fallback usando regex (limitata ma funzionante nei service workers)
+function _htmlToMarkdownRegex(html) {
+  if (!html) return '';
 
+  try {
+    let markdown = html;
 
+    // Rimuovi script, style, comments
+    markdown = markdown.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    markdown = markdown.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+    markdown = markdown.replace(/<!--[\s\S]*?-->/g, '');
+
+    // Headers
+    markdown = markdown.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n');
+    markdown = markdown.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n');
+    markdown = markdown.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n');
+    markdown = markdown.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n');
+    markdown = markdown.replace(/<h5[^>]*>(.*?)<\/h5>/gi, '##### $1\n\n');
+    markdown = markdown.replace(/<h6[^>]*>(.*?)<\/h6>/gi, '###### $1\n\n');
+
+    // Paragraphs
+    markdown = markdown.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n');
+
+    // Links
+    markdown = markdown.replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)');
+
+    // Images
+    markdown = markdown.replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, '![$2]($1)');
+    markdown = markdown.replace(/<img[^>]*alt="([^"]*)"[^>]*src="([^"]*)"[^>]*>/gi, '![$1]($2)');
+    markdown = markdown.replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, '![]($1)');
+
+    // Bold and Italic
+    markdown = markdown.replace(/<(strong|b)[^>]*>(.*?)<\/(strong|b)>/gi, '**$2**');
+    markdown = markdown.replace(/<(em|i)[^>]*>(.*?)<\/(em|i)>/gi, '*$2*');
+
+    // Code
+    markdown = markdown.replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`');
+    markdown = markdown.replace(/<pre[^>]*>(.*?)<\/pre>/gi, '```\n$1\n```\n\n');
+
+    // Lists
+    markdown = markdown.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n');
+    markdown = markdown.replace(/<\/?[uo]l[^>]*>/gi, '\n');
+
+    // Line breaks
+    markdown = markdown.replace(/<br\s*\/?>/gi, '\n');
+    markdown = markdown.replace(/<hr\s*\/?>/gi, '---\n\n');
+
+    // Remove remaining HTML tags
+    markdown = markdown.replace(/<[^>]+>/g, '');
+
+    // Decode HTML entities
+    markdown = markdown.replace(/&nbsp;/g, ' ');
+    markdown = markdown.replace(/&amp;/g, '&');
+    markdown = markdown.replace(/&lt;/g, '<');
+    markdown = markdown.replace(/&gt;/g, '>');
+    markdown = markdown.replace(/&quot;/g, '"');
+    markdown = markdown.replace(/&#39;/g, "'");
+
+    // Clean up whitespace
+    markdown = markdown.replace(/\n{3,}/g, '\n\n');
+    markdown = markdown.replace(/\s+/g, ' ');
+    markdown = markdown.trim();
+
+    return markdown;
+
+  } catch (error) {
+    console.error('Errore nella conversione regex:', error);
+    return `Errore nella conversione: ${error.message}`;
+  }
+}
