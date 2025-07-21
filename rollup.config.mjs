@@ -1,7 +1,7 @@
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import copy from 'rollup-plugin-copy';
-import livereload from 'rollup-plugin-livereload';
+// import livereload from 'rollup-plugin-livereload';
 
 export default [
   {
@@ -11,11 +11,11 @@ export default [
       format: 'iife',
     },
     plugins: [
-      livereload({
-        watch: 'dist/sidepanel',
-        verbose: true,
-        delay: 1000,
-      }),
+      // livereload({
+      //   watch: 'sidepanel/',
+      //   verbose: true,
+      //   delay: 1000,
+      // }),
       nodeResolve({
         jsnext: true,
         main: true,

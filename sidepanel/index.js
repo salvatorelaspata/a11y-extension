@@ -89,7 +89,8 @@ buttonPrompt.addEventListener('click', async () => {
   try {
     const params = {
       initialPrompts: [
-        { role: 'system', content: 'You are a helpful and friendly assistant.' }
+        { role: 'system', content: 'You are a helpful and friendly assistant.' },
+        { role: 'assistant', content: 'Summarize the main points of this page.' }
       ],
       temperature: sliderTemperature.value,
       topK: sliderTopK.value
@@ -161,6 +162,9 @@ document.getElementById('button-parse').addEventListener('click', async () => {
       if (pageContentMDServiceWorker.markdown) {
         status.appendChild(_createP('Markdown convertito con successo (Service Worker) ✅'));
         _downloadMarkdownAutomatically(pageContentMDServiceWorker.markdown);
+        // set markdown to the input field
+        const markdownInput = document.getElementById('input-prompt');
+        markdownInput.value = pageContentMDServiceWorker.markdown;
       }
     } else {
       status.appendChild(_createP('Errore conversione Markdown: ' + (pageContentMDServiceWorker?.error + " ❌" || "Errore sconosciuto ❌")));
@@ -180,7 +184,7 @@ document.getElementById('button-parse').addEventListener('click', async () => {
     status.appendChild(_createP('Errore generale: ' + (error.message || "Errore sconosciuto ❌")));
     status.style.color = '#f44336';
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Elabora Pagina';
+    // status.textContent = 'Elaborazione completata.';
+    // status.style.color = '#4CAF50'; // Verde per successo
   }
 });
