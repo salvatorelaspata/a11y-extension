@@ -1,31 +1,25 @@
 {
-  "manifest_version": 3,
   "name": "Accessibilità Plus",
-  "version": "1.0",
-  "description": "Un'estensione per migliorare l'accessibilità web con riassunti, text-to-speech e interazione assistita.",
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage",
-    "tts"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "version": "0.2",
+  "manifest_version": 3,
+  "description": "An extension to improve web accessibility with summaries, text-to-speech and assisted interaction.",
   "background": {
     "service_worker": "background.js"
   },
+  "permissions": [
+    "sidePanel"
+  ],
+  "minimum_chrome_version": "138",
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  },
   "action": {
-    "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "images/icon16.png",
+      "32": "images/icon32.png",
       "48": "images/icon48.png",
       "128": "images/icon128.png"
-    }
-  },
-  "icons": {
-    "16": "images/icon16.png",
-    "48": "images/icon48.png",
-    "128": "images/icon128.png"
+    },
+    "default_title": "Open Chat Interface"
   }
 }
