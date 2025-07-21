@@ -68,8 +68,54 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     });
     return true;
+  } else if (request.action === "getInputs") {
+    // sendResponse({ inputs: findInputs(request.html) });
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (chrome.runtime.lastError || !tabs[0]) {
+        sendResponse({ success: false, error: 'Nessun tab attivo' });
+        return;
+      }
+      chrome.scripting.executeScript({
+        target: { tabId: tabs[0].id },
+        func: findInputs
+      }, (results) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ success: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+        debugger;
+        if (results) {
+          sendResponse({
+            success: true,
+            inputs: results
+          });
+        } else {
+          sendResponse({ success: false, error: 'Nessun input trovato nella pagina' });
+        }
+      })
+    });
+
+    return true;
+  }
+
+  if (request.action === "fillInput") {
+    const inputToFill = document.getElementById(request.inputId);
+    if (inputToFill) {
+      inputToFill.value = request.value;
+    }
   }
 });
+
+function findInputs() {
+  const inputs = Array.from(document.querySelectorAll('input:not([type="hidden"]), textarea, select'));
+  return inputs.map((input, index) => ({
+    id: input.id || `input-${index}`,
+    type: input.type,
+    name: input.name,
+    placeholder: input.placeholder,
+    value: input.value
+  }));
+}
 
 // Funzione che sarà iniettata nella pagina per la conversione
 function convertHtmlToMarkdownInPage() {

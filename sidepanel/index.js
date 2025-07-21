@@ -3,15 +3,21 @@
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { _createP, _downloadMarkdownAutomatically, _downloadScreenshotAutomatically, _getPageHTML, _promifySendMessage } from '../lib/util';
-
+// input
 const inputPrompt = document.body.querySelector('#input-prompt');
+// buttons
 const buttonPrompt = document.body.querySelector('#button-prompt');
 const buttonReset = document.body.querySelector('#button-reset');
+const buttonParse = document.body.querySelector('#button-parse');
+const buttonInteract = document.body.querySelector('#button-interact');
+// elements
 const elementResponse = document.body.querySelector('#response');
 const elementLoading = document.body.querySelector('#loading');
 const elementError = document.body.querySelector('#error');
+// sliders
 const sliderTemperature = document.body.querySelector('#temperature');
 const sliderTopK = document.body.querySelector('#top-k');
+// labels
 const labelTemperature = document.body.querySelector('#label-temperature');
 const labelTopK = document.body.querySelector('#label-top-k');
 
@@ -34,37 +40,7 @@ async function reset() {
   session = null;
 }
 
-async function initDefaults() {
-  const defaults = await LanguageModel.params();
-  if (!('LanguageModel' in self)) {
-    showResponse('Model not available');
-    return;
-  }
-  sliderTemperature.value = defaults.defaultTemperature;
-  // Pending https://issues.chromium.org/issues/367771112.
-  // sliderTemperature.max = defaults.maxTemperature;
-  if (defaults.defaultTopK > 3) {
-    // limit default topK to 3
-    sliderTopK.value = 3;
-    labelTopK.textContent = 3;
-  } else {
-    sliderTopK.value = defaults.defaultTopK;
-    labelTopK.textContent = defaults.defaultTopK;
-  }
-  sliderTopK.max = defaults.maxTopK;
-  labelTemperature.textContent = defaults.defaultTemperature;
-}
-
-initDefaults();
-
-buttonReset.addEventListener('click', () => {
-  hide(elementLoading);
-  hide(elementError);
-  hide(elementResponse);
-  reset();
-  buttonReset.setAttribute('disabled', '');
-});
-
+// event listeners for sliders and input
 sliderTemperature.addEventListener('input', (event) => {
   labelTemperature.textContent = event.target.value;
   reset();
@@ -83,24 +59,6 @@ inputPrompt.addEventListener('input', () => {
   }
 });
 
-buttonPrompt.addEventListener('click', async () => {
-  const prompt = inputPrompt.value.trim();
-  showLoading();
-  try {
-    const params = {
-      initialPrompts: [
-        { role: 'system', content: 'You are a helpful and friendly assistant.' },
-        { role: 'assistant', content: 'Summarize the main points of this page.' }
-      ],
-      temperature: sliderTemperature.value,
-      topK: sliderTopK.value
-    };
-    const response = await runPrompt(prompt, params);
-    showResponse(response);
-  } catch (e) {
-    showError(e);
-  }
-});
 
 function showLoading() {
   buttonReset.removeAttribute('disabled');
@@ -130,17 +88,87 @@ function hide(element) {
   element.setAttribute('hidden', '');
 }
 
+// event listeners for buttons
 
-document.getElementById('button-parse').addEventListener('click', async () => {
-  // const btn = document.getElementById('button-parse');
-  // btn.disabled = true;
-  // btn.textContent = 'Elaborando...';
+buttonReset.addEventListener('click', () => {
+  hide(elementLoading);
+  hide(elementError);
+  hide(elementResponse);
+  reset();
+  buttonReset.setAttribute('disabled', '');
+});
+
+buttonInteract.addEventListener('click', async () => {
+  buttonInteract.disabled = true;
+  buttonInteract.textContent = 'Interacting...';
+  const status = document.getElementById('status');
+  status.textContent = 'Interacting with the page...';
+  try {
+
+    /**
+     * 
+     * 
+     * 
+     */
+
+    const inputList = document.getElementById('input-list');
+
+    // Richiede gli input al content script quando la sidebar si apre
+
+    const html = await _getPageHTML();
+    const response = await _promifySendMessage("getInputs", { html });
+    console.log("Inputs from content script:", response);
+    if (response.success && response.inputs && response.inputs.length > 0) {
+      inputList.innerHTML = ''; // Pulisce la lista esistente
+      response.inputs[0].result.forEach(input => {
+        const li = document.createElement('li');
+        li.textContent = `${input.name || input.id} (${input.type}): ${input.value}`;
+        inputList.appendChild(li);
+      });
+    } else {
+      inputList.innerHTML = '<li>Nessun input trovato</li>';
+    }
+
+  } catch (error) {
+    console.error("Error during interaction:", error);
+    status.textContent = 'Error during interaction: ' + (error.message || "Unknown error ❌");
+    status.style.color = '#f44336';
+  } finally {
+    buttonInteract.disabled = false;
+    buttonInteract.textContent = 'Interact';
+    status.textContent = 'Interaction completed.';
+    status.style.color = '#4CAF50'; // Green for success
+  }
+});
+
+
+buttonPrompt.addEventListener('click', async () => {
+  const prompt = inputPrompt.value.trim();
+  showLoading();
+  try {
+    const params = {
+      initialPrompts: [
+        { role: 'system', content: 'You are a helpful and friendly assistant.' },
+        { role: 'assistant', content: 'Summarize the main points of this page.' }
+      ],
+      temperature: sliderTemperature.value,
+      topK: sliderTopK.value
+    };
+    const response = await runPrompt(prompt, params);
+    showResponse(response);
+  } catch (e) {
+    showError(e);
+  }
+});
+
+buttonParse.addEventListener('click', async () => {
+  buttonParse.disabled = true;
+  buttonParse.textContent = 'Elaborando...';
   const status = document.getElementById('status');
   status.textContent = 'Elaborazione in corso...';
 
   try {
     const html = await _getPageHTML();
-    console.log(html)
     const [responseScreenshot, pageContentMDServiceWorker, pageContentMDClient] = await Promise.all([
       _promifySendMessage("screenshot"),
       _promifySendMessage("convertToMarkdownSW", html),
@@ -188,3 +216,27 @@ document.getElementById('button-parse').addEventListener('click', async () => {
     // status.style.color = '#4CAF50'; // Verde per successo
   }
 });
+
+// Init
+async function initDefaults() {
+  const defaults = await LanguageModel.params();
+  if (!('LanguageModel' in self)) {
+    showResponse('Model not available');
+    return;
+  }
+  sliderTemperature.value = defaults.defaultTemperature;
+  // Pending https://issues.chromium.org/issues/367771112.
+  // sliderTemperature.max = defaults.maxTemperature;
+  if (defaults.defaultTopK > 3) {
+    // limit default topK to 3
+    sliderTopK.value = 3;
+    labelTopK.textContent = 3;
+  } else {
+    sliderTopK.value = defaults.defaultTopK;
+    labelTopK.textContent = defaults.defaultTopK;
+  }
+  sliderTopK.max = defaults.maxTopK;
+  labelTemperature.textContent = defaults.defaultTemperature;
+}
+
+initDefaults();
