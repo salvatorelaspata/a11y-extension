@@ -2,6 +2,7 @@
 
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
+import { _createP, _downloadMarkdownAutomatically, _downloadScreenshotAutomatically, _getPageHTML, _promifySendMessage } from '../lib/util';
 
 const inputPrompt = document.body.querySelector('#input-prompt');
 const buttonPrompt = document.body.querySelector('#button-prompt');
@@ -18,15 +19,9 @@ let session;
 
 async function runPrompt(prompt, params) {
   try {
-    if (!session) {
-      session = await LanguageModel.create(params);
-    }
+    if (!session) session = await LanguageModel.create(params);
     return session.prompt(prompt);
   } catch (e) {
-    console.log('Prompt failed');
-    console.error(e);
-    console.log('Prompt:', prompt);
-    // Reset session
     reset();
     throw e;
   }
@@ -41,7 +36,6 @@ async function reset() {
 
 async function initDefaults() {
   const defaults = await LanguageModel.params();
-  console.log('Model default:', defaults);
   if (!('LanguageModel' in self)) {
     showResponse('Model not available');
     return;
@@ -134,3 +128,59 @@ function show(element) {
 function hide(element) {
   element.setAttribute('hidden', '');
 }
+
+
+document.getElementById('button-parse').addEventListener('click', async () => {
+  // const btn = document.getElementById('button-parse');
+  // btn.disabled = true;
+  // btn.textContent = 'Elaborando...';
+  const status = document.getElementById('status');
+  status.textContent = 'Elaborazione in corso...';
+
+  try {
+    const html = await _getPageHTML();
+    console.log(html)
+    const [responseScreenshot, pageContentMDServiceWorker, pageContentMDClient] = await Promise.all([
+      _promifySendMessage("screenshot"),
+      _promifySendMessage("convertToMarkdownSW", html),
+      _promifySendMessage("convertToMarkdownInContentScript")
+    ]);
+
+    console.log("Risposta screenshot:", responseScreenshot);
+    console.log("Risposta Markdown Service Worker:", pageContentMDServiceWorker);
+    console.log("Risposta Markdown Content Script:", pageContentMDClient);
+
+    if (responseScreenshot && responseScreenshot.success) {
+      status.appendChild(_createP('Screenshot: ok ✅'));
+      _downloadScreenshotAutomatically(responseScreenshot.screenshotUrl);
+    } else {
+      status.appendChild(_createP('Errore screenshot: ' + (responseScreenshot?.error + " ❌" || "Errore sconosciuto ❌")));
+    }
+
+    if (pageContentMDServiceWorker && pageContentMDServiceWorker.success) {
+      if (pageContentMDServiceWorker.markdown) {
+        status.appendChild(_createP('Markdown convertito con successo (Service Worker) ✅'));
+        _downloadMarkdownAutomatically(pageContentMDServiceWorker.markdown);
+      }
+    } else {
+      status.appendChild(_createP('Errore conversione Markdown: ' + (pageContentMDServiceWorker?.error + " ❌" || "Errore sconosciuto ❌")));
+    }
+
+    if (pageContentMDClient && pageContentMDClient.success) {
+      if (pageContentMDClient.markdown) {
+        status.appendChild(_createP('Markdown convertito con successo (Content Script) ✅'));
+        _downloadMarkdownAutomatically(pageContentMDClient.markdown);
+      }
+    } else {
+      status.appendChild(_createP('Errore conversione Markdown (Content Script): ' + (pageContentMDClient?.error + " ❌" || "Errore sconosciuto ❌")));
+    }
+
+  } catch (error) {
+    console.error("Errore durante l'elaborazione:", error);
+    status.appendChild(_createP('Errore generale: ' + (error.message || "Errore sconosciuto ❌")));
+    status.style.color = '#f44336';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Elabora Pagina';
+  }
+});

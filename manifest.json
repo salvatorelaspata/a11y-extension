@@ -7,7 +7,12 @@
     "service_worker": "background.js"
   },
   "permissions": [
-    "sidePanel"
+    "sidePanel",
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "minimum_chrome_version": "138",
   "side_panel": {
