@@ -65,6 +65,10 @@ textarea {
   animation: 1s ease-in-out 1s infinite reverse both running blink;
 }
 
+img#screenshot {
+  width: 100%;
+}
+
 @keyframes blink {
   25% {
     opacity: 0.5;

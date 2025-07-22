@@ -1,47 +1,83 @@
+// Initializzazione del service worker
+console.log("Service Worker avviato");
+
+// Registra programmaticamente il content script come backup
+async function registerContentScript() {
+  try {
+    await chrome.scripting.registerContentScripts([{
+      id: "a11y-content-script",
+      matches: ["<all_urls>"],
+      js: ["content.js"],
+      runAt: "document_end"
+    }]);
+    console.log("✅ Content script registrato programmaticamente");
+  } catch (error) {
+    console.log("ℹ️ Content script già registrato o errore:", error.message);
+  }
+}
+
 chrome.runtime.onInstalled.addListener(({ reason }) => {
+  console.log("Service Worker installato o aggiornato", reason);
+
+  // Registra il content script programmaticamente
+  registerContentScript();
+
   if (reason === 'install') {
+    console.log("Estensione installata per la prima volta");
     chrome.sidePanel
       .setPanelBehavior({ openPanelOnActionClick: true })
-      .catch((error) => console.error(error));
+      .catch((error) => console.log(error));
+  } else if (reason === 'update') {
+    console.log("Estensione aggiornata");
+    chrome.sidePanel
+      .setPanelBehavior({ openPanelOnActionClick: true })
+      .catch((error) => console.log(error));
+  } else {
+    console.log("Service Worker avviato per un altro motivo:", reason);
   }
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "screenshot") {
-    // Esegui la cattura dello screenshot
+  console.log("Ricevuto messaggio:", request);
+
+  if (request.action === "content_script_loaded") {
+    console.log("🎉 Content script caricato su:", request.url);
+    console.log("📄 Titolo pagina:", request.title);
+    console.log("⏰ Timestamp:", request.timestamp);
+    sendResponse({ success: true, message: "Content script registrato con successo" });
+    return true;
+  } else if (request.action === "screenshot") {
     chrome.tabs.captureVisibleTab(null, { format: "png" }, (screenshotUrl) => {
       if (chrome.runtime.lastError) {
-        console.error("Errore durante la cattura dello screenshot:", chrome.runtime.lastError.message);
+        console.log("Errore durante la cattura dello screenshot:", chrome.runtime.lastError.message);
         sendResponse({ success: false, error: chrome.runtime.lastError.message });
         return;
       }
-      console.log("Screenshot catturato, invio la risposta...");
+      console.log("Screenshot catturato!");
       sendResponse({ success: true, screenshotUrl: screenshotUrl });
     });
     return true;
 
   } else if (request.action === 'convertToMarkdownSW') {
     try {
-      // Nel service worker non possiamo usare DOMParser
-      // Dobbiamo fare la conversione nel content script o popup
-      console.log('Conversione HTML->Markdown richiesta nel service worker');
-
-      // Converti usando regex (metodo più limitato ma funzionante)
       const regexMarkdown = _htmlToMarkdownRegex(request.html);
-
+      if (!regexMarkdown) {
+        throw new Error('Conversione Markdown fallita');
+      }
+      console.log('Conversione HTML->Markdown richiesta nel service worker (regex)');
       sendResponse({
         success: true,
         markdown: regexMarkdown,
         method: 'regex'
       });
     } catch (error) {
-      console.error('Errore nella conversione:', error);
+      console.log('Errore nella conversione:', error);
       sendResponse({ success: false, error: error.message });
     }
     return true;
   } else if (request.action === 'convertToMarkdownInContentScript') {
-    // Inietta uno script nel tab attivo per fare la conversione là
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      console.log("Richiesta di conversione Markdown in content script");
       if (chrome.runtime.lastError || !tabs[0]) {
         sendResponse({ success: false, error: 'Nessun tab attivo' });
         return;
@@ -57,24 +93,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         if (results && results[0] && results[0].result) {
+          console.log("Markdown convertito con successo in content script:", results[0].result);
           sendResponse({
             success: true,
             markdown: results[0].result,
             method: 'contentScript'
           });
         } else {
+          console.log("Nessun risultato dalla conversione in content script");
           sendResponse({ success: false, error: 'Nessun risultato dalla conversione' });
         }
       });
     });
     return true;
   } else if (request.action === "getInputs") {
-    // sendResponse({ inputs: findInputs(request.html) });
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (chrome.runtime.lastError || !tabs[0]) {
         sendResponse({ success: false, error: 'Nessun tab attivo' });
         return;
       }
+      console.log("Richiesta di ricerca degli input nella pagina");
       chrome.scripting.executeScript({
         target: { tabId: tabs[0].id },
         func: findInputs
@@ -83,7 +121,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ success: false, error: chrome.runtime.lastError.message });
           return;
         }
-        debugger;
         if (results) {
           sendResponse({
             success: true,
@@ -262,7 +299,7 @@ function _htmlToMarkdownRegex(html) {
     return markdown;
 
   } catch (error) {
-    console.error('Errore nella conversione regex:', error);
+    console.log('Errore nella conversione regex:', error);
     return `Errore nella conversione: ${error.message}`;
   }
 }

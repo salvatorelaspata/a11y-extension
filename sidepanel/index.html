@@ -12,16 +12,15 @@
     <input type="range" id="temperature" name="temperature" min="0" max="2" step="0.01" />
     <label for="temperature">Temperature: <span id="label-temperature"></span></label>
   </div>
-  <div>
-    <input type="range" id="top-k" name="top-k" min="1" max="8" step="1" />
-    <label for="top-k">Top-k: <span id="label-top-k"></span></label>
-  </div>
-  <button id="button-prompt" class="primary" disabled>Run</button>
-  <button id="button-reset" class="secondary" disabled>Reset</button>
   <button id="button-parse">Parse</button>
   <button id="button-interact">Interact</button>
+  <div id="markdown-container">
+    <h2>Response</h2>
+    <p id="response" class="markdown"></p>
+    <p id="response2" class="markdown"></p>
+  </div>
+  <img id="screenshot" alt="Screenshot of the current page" />
   <ul id="input-list"></ul>
-  <div id="response" class="text" hidden></div>
   <div id="loading" class="text" hidden><span class="blink">...</span></div>
   <div id="error" class="text" hidden></div>
   <div id="status" class="text"></div>
