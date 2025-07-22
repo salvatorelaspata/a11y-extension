@@ -5,14 +5,14 @@ import copy from 'rollup-plugin-copy';
 
 export default [
   {
-    input: 'sidepanel/index.js',
+    input: 'popup/index.js',
     output: {
-      dir: 'dist/sidepanel',
+      dir: 'dist/popup',
       format: 'iife',
     },
     plugins: [
       // livereload({
-      //   watch: 'sidepanel/',
+      //   watch: 'popup/',
       //   verbose: true,
       //   delay: 1000,
       // }),
@@ -25,7 +25,7 @@ export default [
       copy({
         targets: [
           {
-            src: ['manifest.json', 'background.js', 'content.js', 'sidepanel', 'images', 'lib'],
+            src: ['manifest.json', 'background.js', 'content.js', 'popup', 'images', 'lib'],
             dest: 'dist'
           }
         ]

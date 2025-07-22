@@ -194,8 +194,10 @@ buttonParse.addEventListener('click', async () => {
       status.appendChild(_createP('Screenshot: ok ✅'));
       // _downloadScreenshotAutomatically(responseScreenshot.screenshotUrl);
       screenshotElement.src = responseScreenshot.screenshotUrl;
+      screenshotElement.style.display = 'block';
     } else {
       status.appendChild(_createP('Errore screenshot: ' + (responseScreenshot?.error + " ❌" || "Errore sconosciuto ❌")));
+      screenshotElement.style.display = 'none';
     }
 
     if (pageContentMDServiceWorker && pageContentMDServiceWorker.success) {

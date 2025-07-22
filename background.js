@@ -24,14 +24,8 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 
   if (reason === 'install') {
     console.log("Estensione installata per la prima volta");
-    chrome.sidePanel
-      .setPanelBehavior({ openPanelOnActionClick: true })
-      .catch((error) => console.log(error));
   } else if (reason === 'update') {
     console.log("Estensione aggiornata");
-    chrome.sidePanel
-      .setPanelBehavior({ openPanelOnActionClick: true })
-      .catch((error) => console.log(error));
   } else {
     console.log("Service Worker avviato per un altro motivo:", reason);
   }

@@ -7,7 +7,6 @@
     "service_worker": "background.js"
   },
   "permissions": [
-    "sidePanel",
     "scripting",
     "activeTab"
   ],
@@ -15,9 +14,6 @@
     "<all_urls>"
   ],
   "minimum_chrome_version": "116",
-  "side_panel": {
-    "default_path": "sidepanel/index.html"
-  },
   "content_scripts": [
     {
       "matches": [
@@ -35,6 +31,7 @@
       "48": "images/icon48.png",
       "128": "images/icon128.png"
     },
-    "default_title": "Open Chat Interface"
+    "default_title": "Open Accessibility Tools",
+    "default_popup": "popup/index.html"
   }
 }
