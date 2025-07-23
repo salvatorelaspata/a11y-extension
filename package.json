@@ -1,5 +1,5 @@
 {
-  "name": "Accessibilità Plus",
+  "name": "a11y-plus",
   "private": true,
   "version": "1.0.0",
   "description": "An extension to improve web accessibility with summaries, text-to-speech and assisted interaction.",
@@ -10,12 +10,12 @@
   "keywords": [],
   "license": "Apache 2.0",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "26.0.1",
-    "@rollup/plugin-node-resolve": "15.2.3",
-    "dompurify": "3.2.4",
-    "marked": "14.1.2",
-    "rollup": "4.22.4",
-    "rollup-plugin-copy": "3.5.0",
-    "rollup-plugin-livereload": "^2.0.5"
+    "@mozilla/readability": "0.5.0",
+    "@rollup/plugin-commonjs": "28.0.1",
+    "@rollup/plugin-node-resolve": "15.3.0",
+    "dompurify": "3.1.7",
+    "marked": "14.1.4",
+    "rollup": "4.24.4",
+    "rollup-plugin-copy": "^3.5.0"
   }
 }

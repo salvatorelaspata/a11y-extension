@@ -1,30 +1,24 @@
 {
-  "name": "Accessibilità Plus",
-  "version": "0.2",
+  "name": "A11Y Plus",
+  "version": "0.1",
   "manifest_version": 3,
   "description": "An extension to improve web accessibility with summaries, text-to-speech and assisted interaction.",
   "background": {
     "service_worker": "background.js"
   },
   "permissions": [
+    "tabs",
     "scripting",
-    "activeTab",
-    "tabs"
+    "sidePanel",
+    "storage"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "http://*/*",
+    "https://*/*"
   ],
-  "minimum_chrome_version": "116",
-  "content_scripts": [
-    {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ]
-    }
-  ],
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  },
   "action": {
     "default_icon": {
       "16": "images/icon16.png",
@@ -32,7 +26,6 @@
       "48": "images/icon48.png",
       "128": "images/icon128.png"
     },
-    "default_title": "Open Accessibility Tools",
-    "default_popup": "popup/index.html"
+    "default_title": "Generate a summary"
   }
 }
